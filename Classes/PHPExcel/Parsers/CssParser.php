@@ -44,15 +44,22 @@ class PHPExcel_Parsers_CssParser {
      */
     public function transformCssToInlineStyles($html)
     {
-        $css = '';
+        // Clean-up html
+        $this->cssInliner->setCleanup(true);
+
+        // Set html
+        $this->cssInliner->setHtml($html);
+
+        // Use inline style blocks
+        $this->cssInliner->setUseInlineStylesBlock(true);
 
         // Loop through all stylesheets
+        $css = '';
         foreach($this->links as $link)
-        {
             $css .= file_get_contents($link);
-        }
+        $this->cssInliner->setCSS($css);
 
-        return $this->cssInliner->convert($html, $css);
+	return $this->cssInliner->convert();
     }
 
     /**
