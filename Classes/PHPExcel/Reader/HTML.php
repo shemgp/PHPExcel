@@ -390,11 +390,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                         break;
 
                     case 'img':
-                        $styleAry = [];
-                        if (isset($attributeArray['style']) && !empty($attributeArray['style'])) {
-                            $styleAry = $this->getPhpExcelStyleArray($attributeArray['style']);
-                        }
-                        $this->insertImageBySrc($sheet, $column, $row, $child, $styleAry);
+                        $this->insertImageBySrc($sheet, $column, $row, $child);
                         break;
 
                     case 'table' :
@@ -621,7 +617,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         $returnStyle = array();
         $args        = func_get_args();
 
-        $new_args = [];
+        $new_args = array();
         foreach($args as $key => $css)
         {
             foreach(explode(";", $css) as $css_line)
@@ -633,8 +629,6 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
             }
         }
         $args = $new_args;
-
-        // var_dump($args);
 
         foreach ($args as $key=>$css) {
         $style = array();
@@ -923,13 +917,19 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
      * @param  string    $attributes
      * @return void
      */
-    protected function insertImageBySrc($sheet, $column, $row, $attributes, $style)
+    protected function insertImageBySrc($sheet, $column, $row, $attributes)
     {
         // Get attributes
         $src = $attributes->getAttribute('src');
         $width = (float) $attributes->getAttribute('width');
         $height = (float) $attributes->getAttribute('height');
         $alt = $attributes->getAttribute('alt');
+        $style = $attributes->getAttribute('style');
+
+        if ($style)
+            $style = $this->getPhpExcelStyleArray($style);
+        else
+            $style = array();
 
         $top = 0;
         $left = 0;
