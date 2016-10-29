@@ -14,6 +14,7 @@ Develop: [![Build Status](https://travis-ci.org/PHPOffice/PHPExcel.png?branch=de
  * Open Document Format/OASIS (.ods)
  * Gnumeric
  * HTML
+   * To parse non-inline CSS, you need to add the class [\TijsVerkoyen\CssToInlineStyles](https://github.com/tijsverkoyen/CssToInlineStyles)
  * SYLK
  * CSV
 
