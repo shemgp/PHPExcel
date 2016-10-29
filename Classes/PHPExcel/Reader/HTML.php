@@ -108,6 +108,11 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
      */
     public function __construct()
     {
+        if (class_exists('\TijsVerkoyen\CssToInlineStyles\CssToInlineStyles'))
+            $this->cssParser = new PHPExcel_Parsers_CssParser(new \TijsVerkoyen\CssToInlineStyles\CssToInlineStyles());
+        else
+            $this->cssParser = null;
+
         $this->_readFilter = new PHPExcel_Reader_DefaultReadFilter();
     }
 
@@ -304,6 +309,33 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                         $this->_processDomElement($child, $sheet, $row, $column, $cellContent);
 //						echo 'END OF HYPERLINK:' , '<br />';
                         break;
+                    case 'span'  :
+                    case 'div'   :
+                    case 'font'  :
+                    case 'i'     :
+                    case 'em'    :
+                    case 'strong':
+                    case 'b'     :
+
+                        // Add space after empty cells
+                        if ( $cellContent > '' )
+                            $cellContent .= ' ';
+
+                        // Continue processing
+                        $this->_processDomElement($child, $sheet, $row, $column, $cellContent, $format);
+
+                        // Add space after empty cells
+                        if ( $cellContent > '' )
+                            $cellContent .= ' ';
+
+                        // Set the styling
+                        if ( isset($this->_formats[$child->nodeName]) )
+                        {
+                            $sheet->getStyle($column . $row)
+                                  ->applyFromArray($this->_formats[$child->nodeName]);
+                        }
+
+                        break;
                     case 'h1' :
                     case 'h2' :
                     case 'h3' :
@@ -356,6 +388,15 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                             $column = 'A';
                         }
                         break;
+
+                    case 'img':
+                        $styleAry = [];
+                        if (isset($attributeArray['style']) && !empty($attributeArray['style'])) {
+                            $styleAry = $this->getPhpExcelStyleArray($attributeArray['style']);
+                        }
+                        $this->insertImageBySrc($sheet, $column, $row, $child, $styleAry);
+                        break;
+
                     case 'table' :
                         $this->_flushCell($sheet, $column, $row, $cellContent);
                         $column = $this->_setTableStartColumn($column);
@@ -395,13 +436,28 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 
                         $this->_flushCell($sheet, $column, $row, $cellContent);
 
-//                        if (isset($attributeArray['style']) && !empty($attributeArray['style'])) {
-//                            $styleAry = $this->getPhpExcelStyleArray($attributeArray['style']);
-//
-//                            if (!empty($styleAry)) {
-//                                $sheet->getStyle($column . $row)->applyFromArray($styleAry);
-//                            }
-//                        }
+                        if (isset($attributeArray['style']) && !empty($attributeArray['style'])) {
+                            $styleAry = $this->getPhpExcelStyleArray($attributeArray['style']);
+
+                            if (!empty($styleAry)) {
+                                $sheet->getStyle($column . $row)->applyFromArray($styleAry);
+                            }
+
+                            if (isset($styleAry['width']))
+                            {
+                                if ($styleAry['width'] == 'auto')
+                                    $sheet->getColumnDimension($column)->setAutoSize(true);
+                                else
+                                    $sheet->getColumnDimension($column)->setWidth((int)$styleAry['width']);
+                            }
+                            if (isset($styleAry['height']))
+                            {
+                                if ($styleAry['height'] == 'auto')
+                                    $sheet->getRowDimension($row)->setAutoSize(height);
+                                else
+                                    $sheet->getRowDimension($row)->setRowHeight((int)$styleAry['height']);
+                            }
+                        }
 
                         if (isset($attributeArray['rowspan']) && isset($attributeArray['colspan'])) {
                             //create merging rowspan and colspan
@@ -431,6 +487,10 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                             $sheet->mergeCells($column . $row . ':' . $columnTo . $row);
                             $column = $columnTo;
                         }
+
+                        if (isset($attributeArray['style']) && !empty($attributeArray['style']))
+                            $sheet->getStyle($column . $row)->applyFromArray($styleAry);
+
                         ++$column;
                         break;
                     case 'body' :
@@ -476,6 +536,23 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         $dom = new domDocument;
         //	Reload the HTML file into the DOM object
         $loaded = $dom->loadHTML($this->securityScanFile($pFilename));
+
+        // apply non-inline styles
+        if ($this->cssParser)
+        {
+            // Let the css parser find all stylesheets
+            $this->cssParser->findStyleSheets($dom);
+
+            // Transform the css files to inline css and replace the html
+            $html = $this->cssParser->transformCssToInlineStyles($this->securityScanFile($pFilename));
+
+            // Re-init dom doc
+            $dom = new DOMDocument;
+
+            // Load again with css included
+            $loaded = $dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+        }
+
         if ($loaded === FALSE) {
             throw new PHPExcel_Reader_Exception('Failed to load ', $pFilename, ' as a DOM Document');
         }
@@ -530,5 +607,361 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         return $xml;
     }
 
+    /**
+     * Converts an array of css style attributes to PHPExcel style values.
+     * <p>
+     * Any array element that is not a valid css attribute will be merged into
+     * the returned array.
+     *
+     * @param  $mixed An array of css attributes
+     * @return Array
+     */
+    public function getPHPExcelStyleArray()
+    {
+        $returnStyle = array();
+        $args        = func_get_args();
+
+        $new_args = [];
+        foreach($args as $key => $css)
+        {
+            foreach(explode(";", $css) as $css_line)
+            {
+                if (trim($css_line) == "")
+                    continue;
+                $tmp = explode(":", $css_line);
+                $new_args[$key][trim($tmp[0])] = trim(str_replace(";", '', $tmp[1]));
+            }
+        }
+        $args = $new_args;
+
+        // var_dump($args);
+
+        foreach ($args as $key=>$css) {
+        $style = array();
+        // text-alignment
+        if (isset($css['text-align'])) {
+            $style['alignment'] = array();
+            switch ($css['text-align']) {
+            case 'left':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_LEFT;
+                break;
+            case 'center':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_CENTER;
+                break;
+            case 'right':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_RIGHT;
+                break;
+            }
+
+            unset($args[$key]['text-align']);
+        }
+
+        if (isset($css['vertical-align'])) {
+            $style['alignment'] = isset($style['alignment']) ? $style['alignment'] : array();
+
+            switch ($css['vertical-align']) {
+            case 'top':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_TOP;
+                break;
+            case 'middle':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_CENTER;
+                break;
+            case 'bottom':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_BOTTOM;
+                break;
+            }
+
+            unset($args[$key]['vertical-align']);
+        }
+
+        // background-color
+        if (isset($css['background-color'])) {
+            $style['fill'] = array(
+                'type'  => PHPExcel_Style_Fill::FILL_SOLID,
+                'color' => array('rgb' => $this->getColor($css['background-color'])),
+            );
+
+            unset($args[$key]['background-color']);
+        }
+
+        if (isset($css['background'])) {
+            $style['fill'] = array(
+                'type'  => PHPExcel_Style_Fill::FILL_SOLID,
+                'color' => array('rgb' => $this->getColor($css['background'])),
+            );
+
+            unset($args[$key]['background']);
+        }
+
+        // font-size
+        if (isset($css['font-size'])) {
+            $style['font']         = isset($style['font']) ? $style['font'] : array();
+            $style['font']['size'] = $css['font-size'];
+
+            unset($args[$key]['font-size']);
+        }
+
+        // font-weight
+        if (isset($css['font-weight'])) {
+            $style['font']         = isset($style['font']) ? $style['font'] : array();
+            $style['font'][$css['font-weight']] = true;
+
+            unset($args[$key]['font-weight']);
+        }
+
+        // font-color
+        if (isset($css['color'])) {
+            $style['font']          = isset($style['font']) ? $style['font'] : array();
+            $style['font']['color'] = array('rgb' => $this->getColor($css['color']));
+
+            unset($args[$key]['color']);
+        }
+
+        // border
+        if (isset($css['border'])) {
+            $borderParts = explode(' ', $css['border']);
+
+            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+
+            $border = array(
+                        'style' => $this->getBorderStyle($borderParts[0]),
+                            'color' => array(
+                            'rgb' => $this->getColor(end($borderParts))
+                        )
+                    );
+
+            $style['borders'] = array(
+                'bottom' => $border,
+                'left'   => $border,
+                'top'    => $border,
+                'right'  => $border,
+            );
+
+            unset($args[$key]['borders']);
+        }
+
+        if (isset($css['border-top'])) {
+            $borderParts = explode(' ', $css['border-top']);
+
+            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+
+            $border = array(
+                        'style' => $this->getBorderStyle($borderParts[0]),
+                            'color' => array(
+                            'rgb' => $this->getColor(end($borderParts))
+                        )
+                    );
+
+            $style['borders'] = array(
+                'top' => $border,
+            );
+
+            unset($args[$key]['border-top']);
+        }
+
+        if (isset($css['border-right'])) {
+            $borderParts = explode(' ', $css['border-right']);
+
+            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+
+            $border = array(
+                        'style' => $this->getBorderStyle($borderParts[0]),
+                            'color' => array(
+                            'rgb' => $this->getColor(end($borderParts))
+                        )
+                    );
+
+            $style['borders'] = array(
+                'right' => $border,
+            );
+
+            unset($args[$key]['border-right']);
+        }
+
+        if (isset($css['border-bottom'])) {
+            $borderParts = explode(' ', $css['border-bottom']);
+
+            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+
+            $border = array(
+                        'style' => $this->getBorderStyle($borderParts[0]),
+                            'color' => array(
+                            'rgb' => $this->getColor(end($borderParts))
+                        )
+                    );
+
+            $style['borders'] = array(
+                'bottom' => $border,
+            );
+
+            unset($args[$key]['border-bottom']);
+        }
+
+        if (isset($css['border-left'])) {
+            $borderParts = explode(' ', $css['border-left']);
+
+            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+
+            $border = array(
+                        'style' => $this->getBorderStyle($borderParts[0]),
+                            'color' => array(
+                            'rgb' => $this->getColor(end($borderParts))
+                        )
+                    );
+
+            $style['borders'] = array(
+                'left' => $border,
+            );
+
+            unset($args[$key]['border-left']);
+        }
+
+        $returnStyle = array_merge($returnStyle, $args[$key]);
+        $returnStyle = array_merge($returnStyle, $style);
+        }
+
+        return $returnStyle;
+    }
+
+    /**
+     * Get the color
+     * @param  string $color
+     * @return string
+     */
+    public function getColor($color)
+    {
+        if (!ctype_xdigit($color))
+        {
+            $hex_color = @PHPExcel_Helper_HTML::colourNameLookup($color);
+            if ($hex_color != null)
+                $color = $hex_color;
+        }
+
+        $color = str_replace('#', '', $color);
+
+        // If color is only 3 chars long, mirror it to 6 chars
+        if ( strlen($color) == 3 )
+            $color = $color . $color;
+
+        return $color;
+    }
+
+    /**
+     * Get the border style
+     * @param  string $style
+     * @return string
+     */
+    public function getBorderStyle($style)
+    {
+        switch ($style)
+        {
+            case 'solid';
+                return PHPExcel_Style_Border::BORDER_THIN;
+                break;
+
+            case 'dashed':
+                return PHPExcel_Style_Border::BORDER_DASHED;
+                break;
+
+            case 'dotted':
+                return PHPExcel_Style_Border::BORDER_DOTTED;
+                break;
+
+            case 'medium':
+                return PHPExcel_Style_Border::BORDER_MEDIUM;
+                break;
+
+			case 'thin':
+                return PHPExcel_Style_Border::BORDER_THIN;
+                break;
+
+            case 'thick':
+                return PHPExcel_Style_Border::BORDER_THICK;
+                break;
+
+            case 'none':
+                return PHPExcel_Style_Border::BORDER_NONE;
+                break;
+
+            case 'dash-dot':
+                return PHPExcel_Style_Border::BORDER_DASHDOT;
+                break;
+
+            case 'dash-dot-dot':
+                return PHPExcel_Style_Border::BORDER_DASHDOTDOT;
+                break;
+
+            case 'double':
+                return PHPExcel_Style_Border::BORDER_DOUBLE;
+                break;
+
+            case 'hair':
+                return PHPExcel_Style_Border::BORDER_HAIR;
+                break;
+
+            case 'medium-dash-dot':
+                return PHPExcel_Style_Border::BORDER_MEDIUMDASHDOT;
+                break;
+
+            case 'medium-dash-dot-dot':
+                return PHPExcel_Style_Border::BORDER_MEDIUMDASHDOTDOT;
+                break;
+
+            case 'medium-dashed':
+                return PHPExcel_Style_Border::BORDER_MEDIUMDASHED;
+                break;
+
+            case 'slant-dash-dot':
+                return PHPExcel_Style_Border::BORDER_SLANTDASHDOT;
+                break;
+
+            default:
+                return null;
+                break;
+        }
+    }
+
+    /**
+     * Insert a image inside the sheet
+     * @param  Worksheet $sheet
+     * @param  string    $column
+     * @param  integer   $row
+     * @param  string    $attributes
+     * @return void
+     */
+    protected function insertImageBySrc($sheet, $column, $row, $attributes, $style)
+    {
+        // Get attributes
+        $src = $attributes->getAttribute('src');
+        $width = (float) $attributes->getAttribute('width');
+        $height = (float) $attributes->getAttribute('height');
+        $alt = $attributes->getAttribute('alt');
+
+        $top = 0;
+        $left = 0;
+        $height = 100;
+        $width = null;
+        if (isset($style['top']))
+            $top = (int) $style['top'];
+        if (isset($style['left']))
+            $left = (int) $style['left'];
+        if (isset($style['height']))
+            $height = (int) $style['height'];
+        if (isset($style['width']))
+            $width = (int) $style['width'];
+
+        // init drawing
+        $drawing = new PHPExcel_Worksheet_Drawing();
+
+        // Set image
+        $drawing->setPath($src);
+        $drawing->setName($alt);
+        $drawing->setWorksheet($sheet);
+        $drawing->setCoordinates($column . $row);
+        $drawing->setResizeProportional();
+        $drawing->setOffsetX($left);
+        $drawing->setOffsetY($top);
+
+        // Set height and width
+        if ( $width > 0 )
+            $drawing->setWidth($width);
+
+        if ( $height > 0 )
+            $drawing->setHeight($height);
+    }
 }
 
