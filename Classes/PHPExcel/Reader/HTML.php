@@ -103,15 +103,15 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 
     protected $rowspan = array();
 
+    private $_cssParser = null;
+
     /**
      * Create a new PHPExcel_Reader_HTML
      */
     public function __construct()
     {
         if (class_exists('\TijsVerkoyen\CssToInlineStyles\CssToInlineStyles'))
-            $this->cssParser = new PHPExcel_Parsers_CssParser(new \TijsVerkoyen\CssToInlineStyles\CssToInlineStyles());
-        else
-            $this->cssParser = null;
+            $this->_cssParser = new PHPExcel_Parsers_CssParser(new \TijsVerkoyen\CssToInlineStyles\CssToInlineStyles());
 
         $this->_readFilter = new PHPExcel_Reader_DefaultReadFilter();
     }
@@ -534,13 +534,13 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         $loaded = $dom->loadHTML($this->securityScanFile($pFilename));
 
         // apply non-inline styles
-        if ($this->cssParser)
+        if ($this->_cssParser)
         {
             // Let the css parser find all stylesheets
-            $this->cssParser->findStyleSheets($dom);
+            $this->_cssParser->findStyleSheets($dom);
 
             // Transform the css files to inline css and replace the html
-            $html = $this->cssParser->transformCssToInlineStyles($this->securityScanFile($pFilename));
+            $html = $this->_cssParser->transformCssToInlineStyles($this->securityScanFile($pFilename));
 
             // Re-init dom doc
             $dom = new DOMDocument;
