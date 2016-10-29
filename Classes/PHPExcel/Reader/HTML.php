@@ -597,7 +597,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 	public function securityScan($xml)
 	{
         $pattern = '/\\0?' . implode('\\0?', str_split('<!ENTITY')) . '\\0?/';
-        if (preg_match($pattern, $xml)) { 
+        if (preg_match($pattern, $xml)) {
             throw new PHPExcel_Reader_Exception('Detected use of ENTITY in XML, spreadsheet file load() aborted to prevent XXE/XEE attacks');
         }
         return $xml;
@@ -947,6 +947,18 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         // init drawing
         $drawing = new PHPExcel_Worksheet_Drawing();
 
+        if (filter_var($src, FILTER_VALIDATE_URL))
+        {
+            $headers=get_headers($src);
+            if (stripos($headers[0],"200 OK") === false)
+                throw new Exception('File '.$src.' not found!');
+            else
+            {
+                $tmp_image = $this->temporaryFile('phpexcel_tmp_image_'.basename($src), file_get_contents($src));
+                $src = $tmp_image;
+            }
+        }
+
         // Set image
         $drawing->setPath($src);
         $drawing->setName($alt);
@@ -963,5 +975,20 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         if ( $height > 0 )
             $drawing->setHeight($height);
     }
-}
 
+    private function temporaryFile($name, $content)
+    {
+        $file = DIRECTORY_SEPARATOR .
+                trim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) .
+                DIRECTORY_SEPARATOR .
+                ltrim($name, DIRECTORY_SEPARATOR);
+
+        file_put_contents($file, $content);
+
+        register_shutdown_function(function() use($file) {
+            unlink($file);
+        });
+
+        return $file;
+    }
+}
