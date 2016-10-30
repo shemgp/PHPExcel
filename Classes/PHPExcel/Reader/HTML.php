@@ -454,12 +454,12 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                                     $sheet->getRowDimension($row)->setRowHeight((int)$styleAry['height']);
                             }
 
-                            if (isset($styleAry['format']))
+                            if (isset($styleAry['number-format']))
                             {
-                                if ($styleAry['format'] == 'percentage' || $styleAry['format'] == 'percent')
+                                if ($styleAry['number-format'] == 'percentage' || $styleAry['number-format'] == 'percent')
                                     $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_PERCENTAGE);
                                 else
-                                    $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode($styleAry['format']);
+                                    $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode($styleAry['number-format']);
                             }
                         }
 
@@ -711,15 +711,6 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
             $style['font']['color'] = array('rgb' => $this->getColor($css['color']));
 
             unset($args[$key]['color']);
-        }
-
-        // format
-        if (isset($css['format']))
-        {
-            if ($css['format'] == 'percent' || $css['format'] == 'percentage')
-            {
-                $style['code'] = PHPExcel_Style_NumberFormat::FORMAT_PERCENTAGE_00;
-            }
         }
 
         // border
