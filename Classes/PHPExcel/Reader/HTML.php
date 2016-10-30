@@ -421,6 +421,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 //						echo 'END OF TABLE ' , $this->_tableLevel , ' ROW<br />';
                         break;
                     case 'th' :
+                        $attributeArray['style'] = isset($attributeArray['style']) ? $attributeArray['style'].'; font-weight: bold;' : 'font-weight: bold';
                     case 'td' :
 //						echo 'START OF TABLE ' , $this->_tableLevel , ' CELL<br />';
                         $this->_processDomElement($child, $sheet, $row, $column, $cellContent);
@@ -458,6 +459,8 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                             {
                                 if ($styleAry['number-format'] == 'percentage' || $styleAry['number-format'] == 'percent')
                                     $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_PERCENTAGE);
+                                else if ($styleAry['number-format'] == 'percentage_00' || $styleAry['number-format'] == 'percent_00')
+                                    $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_PERCENTAGE_00);
                                 else
                                     $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode($styleAry['number-format']);
                             }
@@ -703,6 +706,14 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
             $style['font'][$css['font-weight']] = true;
 
             unset($args[$key]['font-weight']);
+        }
+
+        // font-style
+        if (isset($css['font-style'])) {
+            $style['font']         = isset($style['font']) ? $style['font'] : array();
+            $style['font'][$css['font-style']] = true;
+
+            unset($args[$key]['font-style']);
         }
 
         // font-color
