@@ -464,6 +464,12 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                                 else
                                     $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode($styleAry['number-format']);
                             }
+                            
+                            if (isset($styleAry['white-space']))
+                            {
+                                if ($styleAry['white-space'] == 'normal')
+                                    $sheet->getStyle($column . $row)->getAlignment()->setWrapText(true);
+                            }
                         }
 
                         if (isset($attributeArray['rowspan']) && isset($attributeArray['colspan'])) {
@@ -642,189 +648,189 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
         $args = $new_args;
 
         foreach ($args as $key=>$css) {
-        $style = array();
-        // text-alignment
-        if (isset($css['text-align'])) {
-            $style['alignment'] = array();
-            switch ($css['text-align']) {
-            case 'left':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_LEFT;
-                break;
-            case 'center':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_CENTER;
-                break;
-            case 'right':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_RIGHT;
-                break;
+            $style = array();
+            // text-alignment
+            if (isset($css['text-align'])) {
+                $style['alignment'] = array();
+                switch ($css['text-align']) {
+                case 'left':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_LEFT;
+                    break;
+                case 'center':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_CENTER;
+                    break;
+                case 'right':$style['alignment']['horizontal'] = PHPExcel_Style_Alignment::HORIZONTAL_RIGHT;
+                    break;
+                }
+
+                unset($args[$key]['text-align']);
             }
 
-            unset($args[$key]['text-align']);
-        }
+            if (isset($css['vertical-align'])) {
+                $style['alignment'] = isset($style['alignment']) ? $style['alignment'] : array();
 
-        if (isset($css['vertical-align'])) {
-            $style['alignment'] = isset($style['alignment']) ? $style['alignment'] : array();
+                switch ($css['vertical-align']) {
+                case 'top':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_TOP;
+                    break;
+                case 'middle':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_CENTER;
+                    break;
+                case 'bottom':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_BOTTOM;
+                    break;
+                }
 
-            switch ($css['vertical-align']) {
-            case 'top':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_TOP;
-                break;
-            case 'middle':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_CENTER;
-                break;
-            case 'bottom':$style['alignment']['vertical'] = PHPExcel_Style_Alignment::VERTICAL_BOTTOM;
-                break;
+                unset($args[$key]['vertical-align']);
             }
 
-            unset($args[$key]['vertical-align']);
-        }
+            // background-color
+            if (isset($css['background-color'])) {
+                $style['fill'] = array(
+                    'type'  => PHPExcel_Style_Fill::FILL_SOLID,
+                    'color' => array('rgb' => $this->getColor($css['background-color'])),
+                );
 
-        // background-color
-        if (isset($css['background-color'])) {
-            $style['fill'] = array(
-                'type'  => PHPExcel_Style_Fill::FILL_SOLID,
-                'color' => array('rgb' => $this->getColor($css['background-color'])),
-            );
+                unset($args[$key]['background-color']);
+            }
 
-            unset($args[$key]['background-color']);
-        }
+            if (isset($css['background'])) {
+                $style['fill'] = array(
+                    'type'  => PHPExcel_Style_Fill::FILL_SOLID,
+                    'color' => array('rgb' => $this->getColor($css['background'])),
+                );
 
-        if (isset($css['background'])) {
-            $style['fill'] = array(
-                'type'  => PHPExcel_Style_Fill::FILL_SOLID,
-                'color' => array('rgb' => $this->getColor($css['background'])),
-            );
+                unset($args[$key]['background']);
+            }
 
-            unset($args[$key]['background']);
-        }
+            // font-size
+            if (isset($css['font-size'])) {
+                $style['font']         = isset($style['font']) ? $style['font'] : array();
+                $style['font']['size'] = $css['font-size'];
 
-        // font-size
-        if (isset($css['font-size'])) {
-            $style['font']         = isset($style['font']) ? $style['font'] : array();
-            $style['font']['size'] = $css['font-size'];
+                unset($args[$key]['font-size']);
+            }
 
-            unset($args[$key]['font-size']);
-        }
+            // font-weight
+            if (isset($css['font-weight'])) {
+                $style['font']         = isset($style['font']) ? $style['font'] : array();
+                $style['font'][$css['font-weight']] = true;
 
-        // font-weight
-        if (isset($css['font-weight'])) {
-            $style['font']         = isset($style['font']) ? $style['font'] : array();
-            $style['font'][$css['font-weight']] = true;
+                unset($args[$key]['font-weight']);
+            }
 
-            unset($args[$key]['font-weight']);
-        }
+            // font-style
+            if (isset($css['font-style'])) {
+                $style['font']         = isset($style['font']) ? $style['font'] : array();
+                $style['font'][$css['font-style']] = true;
 
-        // font-style
-        if (isset($css['font-style'])) {
-            $style['font']         = isset($style['font']) ? $style['font'] : array();
-            $style['font'][$css['font-style']] = true;
+                unset($args[$key]['font-style']);
+            }
 
-            unset($args[$key]['font-style']);
-        }
+            // font-color
+            if (isset($css['color'])) {
+                $style['font']          = isset($style['font']) ? $style['font'] : array();
+                $style['font']['color'] = array('rgb' => $this->getColor($css['color']));
 
-        // font-color
-        if (isset($css['color'])) {
-            $style['font']          = isset($style['font']) ? $style['font'] : array();
-            $style['font']['color'] = array('rgb' => $this->getColor($css['color']));
+                unset($args[$key]['color']);
+            }
 
-            unset($args[$key]['color']);
-        }
+            // border
+            if (isset($css['border'])) {
+                $borderParts = explode(' ', $css['border']);
 
-        // border
-        if (isset($css['border'])) {
-            $borderParts = explode(' ', $css['border']);
+                $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
 
-            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+                $border = array(
+                            'style' => $this->getBorderStyle($borderParts[0]),
+                                'color' => array(
+                                'rgb' => $this->getColor(end($borderParts))
+                            )
+                        );
 
-            $border = array(
-                        'style' => $this->getBorderStyle($borderParts[0]),
-                            'color' => array(
-                            'rgb' => $this->getColor(end($borderParts))
-                        )
-                    );
+                $style['borders'] = array(
+                    'bottom' => $border,
+                    'left'   => $border,
+                    'top'    => $border,
+                    'right'  => $border,
+                );
 
-            $style['borders'] = array(
-                'bottom' => $border,
-                'left'   => $border,
-                'top'    => $border,
-                'right'  => $border,
-            );
+                unset($args[$key]['borders']);
+            }
 
-            unset($args[$key]['borders']);
-        }
+            if (isset($css['border-top'])) {
+                $borderParts = explode(' ', $css['border-top']);
 
-        if (isset($css['border-top'])) {
-            $borderParts = explode(' ', $css['border-top']);
+                $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
 
-            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+                $border = array(
+                            'style' => $this->getBorderStyle($borderParts[0]),
+                                'color' => array(
+                                'rgb' => $this->getColor(end($borderParts))
+                            )
+                        );
 
-            $border = array(
-                        'style' => $this->getBorderStyle($borderParts[0]),
-                            'color' => array(
-                            'rgb' => $this->getColor(end($borderParts))
-                        )
-                    );
+                $style['borders'] = array(
+                    'top' => $border,
+                );
 
-            $style['borders'] = array(
-                'top' => $border,
-            );
+                unset($args[$key]['border-top']);
+            }
 
-            unset($args[$key]['border-top']);
-        }
+            if (isset($css['border-right'])) {
+                $borderParts = explode(' ', $css['border-right']);
 
-        if (isset($css['border-right'])) {
-            $borderParts = explode(' ', $css['border-right']);
+                $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
 
-            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+                $border = array(
+                            'style' => $this->getBorderStyle($borderParts[0]),
+                                'color' => array(
+                                'rgb' => $this->getColor(end($borderParts))
+                            )
+                        );
 
-            $border = array(
-                        'style' => $this->getBorderStyle($borderParts[0]),
-                            'color' => array(
-                            'rgb' => $this->getColor(end($borderParts))
-                        )
-                    );
+                $style['borders'] = array(
+                    'right' => $border,
+                );
 
-            $style['borders'] = array(
-                'right' => $border,
-            );
+                unset($args[$key]['border-right']);
+            }
 
-            unset($args[$key]['border-right']);
-        }
+            if (isset($css['border-bottom'])) {
+                $borderParts = explode(' ', $css['border-bottom']);
 
-        if (isset($css['border-bottom'])) {
-            $borderParts = explode(' ', $css['border-bottom']);
+                $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
 
-            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+                $border = array(
+                            'style' => $this->getBorderStyle($borderParts[0]),
+                                'color' => array(
+                                'rgb' => $this->getColor(end($borderParts))
+                            )
+                        );
 
-            $border = array(
-                        'style' => $this->getBorderStyle($borderParts[0]),
-                            'color' => array(
-                            'rgb' => $this->getColor(end($borderParts))
-                        )
-                    );
+                $style['borders'] = array(
+                    'bottom' => $border,
+                );
 
-            $style['borders'] = array(
-                'bottom' => $border,
-            );
+                unset($args[$key]['border-bottom']);
+            }
 
-            unset($args[$key]['border-bottom']);
-        }
+            if (isset($css['border-left'])) {
+                $borderParts = explode(' ', $css['border-left']);
 
-        if (isset($css['border-left'])) {
-            $borderParts = explode(' ', $css['border-left']);
+                $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
 
-            $style['borders'] = isset($style['borders']) ? $style['borders'] : array();
+                $border = array(
+                            'style' => $this->getBorderStyle($borderParts[0]),
+                                'color' => array(
+                                'rgb' => $this->getColor(end($borderParts))
+                            )
+                        );
 
-            $border = array(
-                        'style' => $this->getBorderStyle($borderParts[0]),
-                            'color' => array(
-                            'rgb' => $this->getColor(end($borderParts))
-                        )
-                    );
+                $style['borders'] = array(
+                    'left' => $border,
+                );
 
-            $style['borders'] = array(
-                'left' => $border,
-            );
+                unset($args[$key]['border-left']);
+            }
 
-            unset($args[$key]['border-left']);
-        }
-
-        $returnStyle = array_merge($returnStyle, $args[$key]);
-        $returnStyle = array_merge($returnStyle, $style);
+            $returnStyle = array_merge($returnStyle, $args[$key]);
+            $returnStyle = array_merge($returnStyle, $style);
         }
 
         return $returnStyle;
