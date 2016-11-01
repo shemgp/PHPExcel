@@ -997,7 +997,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 
     private function temporaryFile($name, $content)
     {
-        $file = DIRECTORY_SEPARATOR .
+        $file = (DIRECTORY_SEPARATOR == '/' ? DIRECTORY_SEPARATOR : '').
                 trim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) .
                 DIRECTORY_SEPARATOR .
                 ltrim($name, DIRECTORY_SEPARATOR);
