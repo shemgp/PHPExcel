@@ -464,7 +464,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                                 else
                                     $sheet->getStyle($column . $row)->getNumberFormat()->setFormatCode($styleAry['number-format']);
                             }
-                            
+
                             if (isset($styleAry['white-space']))
                             {
                                 if ($styleAry['white-space'] == 'normal')
@@ -1003,15 +1003,15 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
 
     private function temporaryFile($name, $content)
     {
-        $file = (DIRECTORY_SEPARATOR == '/' ? DIRECTORY_SEPARATOR : '').
-                trim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) .
+        $file = sys_get_temp_dir().
                 DIRECTORY_SEPARATOR .
                 ltrim($name, DIRECTORY_SEPARATOR);
 
         file_put_contents($file, $content);
 
         register_shutdown_function(function() use($file) {
-            unlink($file);
+            if (file_exists($file))
+                unlink($file);
         });
 
         return $file;
