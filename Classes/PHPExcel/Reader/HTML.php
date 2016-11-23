@@ -407,6 +407,13 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                         } else {
                             ++$row;
                         }
+                        if (isset($attributeArray['style']) && !empty($attributeArray['style'])) {
+                            $styleAry = $this->getPhpExcelStyleArray($attributeArray['style']);
+                            if (isset($styleAry['height']) && $styleAry['height'] == 'auto')
+                            {
+                                $sheet->getDefaultRowDimension($column)->setRowHeight(-1);
+                            }
+                        }
                         break;
                     case 'thead' :
                     case 'tbody' :
@@ -450,7 +457,7 @@ class PHPExcel_Reader_HTML extends PHPExcel_Reader_Abstract implements PHPExcel_
                             if (isset($styleAry['height']))
                             {
                                 if ($styleAry['height'] == 'auto')
-                                    $sheet->getRowDimension($row)->setAutoSize(height);
+                                    $sheet->getRowDimension($row)->setRowHeight(-1);
                                 else
                                     $sheet->getRowDimension($row)->setRowHeight((int)$styleAry['height']);
                             }
